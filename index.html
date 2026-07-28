@@ -119,7 +119,7 @@
     
     <div class="btn-group">
         <button id="setupMediaBtn">1. Request Camera & Mic</button>
-        <button id="goLiveBtn" disabled>2. Go Live (0 Delay)</button>
+        <button id="goLiveBtn" disabled>2. Go Live</button>
     </div>
     
     <div id="log-status">Ready. Enter parameters and request camera & mic to begin.</div>
@@ -254,8 +254,7 @@
 
             stageInstance = new Stage(dynamicStageToken, strategy);
 
-          stageInstance.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
-                // Convert state to lowercase string to safely handle enum or string variations
+            stageInstance.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
                 const stateStr = String(state).toLowerCase();
                 statusLog.innerText = `Stage Real-Time Link State ➔ ${stateStr.toUpperCase()}`;
                 
