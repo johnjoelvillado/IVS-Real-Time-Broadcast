@@ -254,10 +254,12 @@
 
             stageInstance = new Stage(dynamicStageToken, strategy);
 
-            stageInstance.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
-                statusLog.innerText = `Stage Real-Time Link State ➔ ${state.toUpperCase()}`;
+          stageInstance.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
+                // Convert state to lowercase string to safely handle enum or string variations
+                const stateStr = String(state).toLowerCase();
+                statusLog.innerText = `Stage Real-Time Link State ➔ ${stateStr.toUpperCase()}`;
                 
-                if (state === "CONNECTED") {
+                if (stateStr === "connected") {
                     isStreaming = true;
                     statusLog.style.borderLeftColor = "#00e676";
                     statusLog.innerText = "Live Broadcast Active! (Sub-300ms WebRTC delay pipeline)";
