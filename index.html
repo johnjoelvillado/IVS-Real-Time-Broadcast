@@ -77,7 +77,7 @@
         
         #goLiveBtn { background: #ff5252; border: none; }
         #goLiveBtn:hover:not(:disabled) { background: #ff6e6e; }
-        #goLiveBtn.streaming { background: #00e676; color: #000; }
+        #goLiveBtn.streaming { background: #ff1744; color: #fff; }
         
         #log-status { 
             padding: 12px; 
@@ -132,6 +132,7 @@
     let videoTrack = null;
     let audioTrack = null;
     let dynamicStageToken = null;
+    let isStreaming = false;
     
     const statusLog = document.getElementById('log-status');
     const setupBtn = document.getElementById('setupMediaBtn');
@@ -166,8 +167,30 @@
         }
     });
 
-    // 2. Fetch Token via API using parameters, then Connect to WebRTC Stage
+    // 2. Main Button Action: Go Live or End Live
     goLiveBtn.addEventListener('click', async () => {
+        if (isStreaming) {
+            // End Live action
+            if (stageInstance) {
+                await stageInstance.leave();
+                stageInstance = null;
+            }
+            isStreaming = false;
+            goLiveBtn.classList.remove('streaming');
+            goLiveBtn.innerText = "2. Go Live (0 Delay)";
+            
+            // Re-enable inputs
+            apiUrlInput.disabled = false;
+            usernameInput.disabled = false;
+            passwordInput.disabled = false;
+            auctionIdInput.disabled = false;
+            
+            statusLog.style.borderLeftColor = "#ff9100";
+            statusLog.innerText = "Stream ended. You can modify settings or go live again.";
+            return;
+        }
+
+        // Go Live action
         const apiUrl = apiUrlInput.value.trim();
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
@@ -235,9 +258,11 @@
                 statusLog.innerText = `Stage Real-Time Link State ➔ ${state.toUpperCase()}`;
                 
                 if (state === "CONNECTED") {
+                    isStreaming = true;
                     statusLog.style.borderLeftColor = "#00e676";
                     statusLog.innerText = "Live Broadcast Active! (Sub-300ms WebRTC delay pipeline)";
-                    goLiveBtn.innerText = "Streaming Live";
+                    goLiveBtn.disabled = false;
+                    goLiveBtn.innerText = "End Live";
                     goLiveBtn.classList.add('streaming');
                 }
             });
