@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IVS Zero-Delay Web Broadcaster</title>
+    <script src="https://web-broadcast.live-video.net/1.37.0/amazon-ivs-web-broadcast.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            background: #0b0b0d; 
+            color: #fff; 
+            font-family: 'Courier New', Courier, monospace; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+            padding: 20px;
+        }
+        .container { 
+            background: #141419; 
+            padding: 25px; 
+            border-radius: 12px; 
+            border: 1px solid #232329; 
+            width: 100%; 
+            max-width: 680px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            text-align: center;
+        }
+        h2 { margin-top: 0; color: #b3b3b3; font-size: 18px; text-transform: uppercase; }
+        
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            background: #0b0b0d;
+            border: 1px solid #3c3c45;
+            color: #fff;
+            border-radius: 6px;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+
+        video { 
+            width: 100%; 
+            aspect-ratio: 16/9; 
+            background: #000; 
+            border-radius: 8px; 
+            transform: scaleX(-1); 
+            margin-bottom: 15px;
+        }
+        
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
+        
+        button { 
+            background: #232329; 
+            color: white; 
+            border: 1px solid #3c3c45; 
+            padding: 12px 24px; 
+            font-weight: bold; 
+            border-radius: 6px; 
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #2c2c35; }
+        button:disabled { background: #111; border-color: #222; color: #555; cursor: not-allowed; }
+        
+        #goLiveBtn { background: #ff5252; border: none; }
+        #goLiveBtn:hover:not(:disabled) { background: #ff6e6e; }
+        #goLiveBtn.streaming { background: #00e676; color: #000; }
+        
+        #log-status { 
+            padding: 12px; 
+            background: #1a1a22; 
+            border-left: 4px solid #ff9100; 
+            border-radius: 4px; 
+            font-size: 13px; 
+            color: #b3b3b3; 
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Host Zero-Delay Console</h2>
+    
+    <div class="input-group">
+        <label for="apiUrlInput">API Endpoint URL</label>
+        <input type="text" id="apiUrlInput" value="https://z42wre5ee1.execute-api.us-east-1.amazonaws.com/xdeal/LiveTimedAuction" placeholder="Enter API Gateway endpoint">
+    </div>
+
+    <div class="input-group">
+        <label for="usernameInput">Username</label>
+        <input type="text" id="usernameInput" placeholder="Enter username">
+    </div>
+
+    <div class="input-group">
+        <label for="passwordInput">Password</label>
+        <input type="password" id="passwordInput" placeholder="Enter password">
+    </div>
+
+    <div class="input-group">
+        <label for="auctionIdInput">Auction ID</label>
+        <input type="text" id="auctionIdInput" placeholder="Enter auction ID (e.g., 906)">
+    </div>
+
+    <video id="localPreview" autoplay playsinline muted></video>
+    
+    <div class="btn-group">
+        <button id="setupMediaBtn">1. Request Camera & Mic</button>
+        <button id="goLiveBtn" disabled>2. Go Live (0 Delay)</button>
+    </div>
+    
+    <div id="log-status">Ready. Enter parameters and request camera & mic to begin.</div>
+</div>
+
+<script>
+    const { Stage, SubscribeType, StageEvents, LocalStageStream } = IVSBroadcastClient;
+    
+    let stageInstance = null;
+    let videoTrack = null;
+    let audioTrack = null;
+    let dynamicStageToken = null;
+    
+    const statusLog = document.getElementById('log-status');
+    const setupBtn = document.getElementById('setupMediaBtn');
+    const goLiveBtn = document.getElementById('goLiveBtn');
+    const apiUrlInput = document.getElementById('apiUrlInput');
+    const usernameInput = document.getElementById('usernameInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const auctionIdInput = document.getElementById('auctionIdInput');
+
+    // 1. Request browser hardware access to webcam/microphone
+    setupBtn.addEventListener('click', async () => {
+        statusLog.innerText = "Requesting system device permissions...";
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 1280, height: 720, frameRate: 30 }, 
+                audio: true 
+            });
+            
+            document.getElementById('localPreview').srcObject = mediaStream;
+            
+            videoTrack = mediaStream.getVideoTracks()[0];
+            audioTrack = mediaStream.getAudioTracks()[0];
+            
+            statusLog.style.borderLeftColor = "#00b0ff";
+            statusLog.innerText = "Devices captured successfully. Fill details and Go Live.";
+            setupBtn.disabled = true;
+            goLiveBtn.disabled = false;
+        } catch (err) {
+            statusLog.style.borderLeftColor = "#ff5252";
+            statusLog.innerText = `Hardware Error: ${err.message}. Ensure permissions are permitted.`;
+            console.error(err);
+        }
+    });
+
+    // 2. Fetch Token via API using parameters, then Connect to WebRTC Stage
+    goLiveBtn.addEventListener('click', async () => {
+        const apiUrl = apiUrlInput.value.trim();
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        const auctionId = auctionIdInput.value.trim();
+
+        if (!apiUrl) {
+            statusLog.style.borderLeftColor = "#ff5252";
+            statusLog.innerText = "Error: Please enter a valid API Endpoint URL.";
+            return;
+        }
+        if (!auctionId) {
+            statusLog.style.borderLeftColor = "#ff5252";
+            statusLog.innerText = "Error: Please enter a valid Auction ID.";
+            return;
+        }
+
+        goLiveBtn.disabled = true;
+        apiUrlInput.disabled = true;
+        usernameInput.disabled = true;
+        passwordInput.disabled = true;
+        auctionIdInput.disabled = true;
+        goLiveBtn.innerText = "Fetching Token...";
+        statusLog.innerText = `Requesting real-time token for Auction ID: ${auctionId}...`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username || undefined,
+                    password: password || undefined,
+                    auction_id: parseInt(auctionId)
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server returned status ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.realtime_token) {
+                throw new Error("API response missing 'realtime_token' property.");
+            }
+
+            dynamicStageToken = data.realtime_token;
+
+            goLiveBtn.innerText = "Connecting...";
+            statusLog.innerText = "Establishing WebRTC handshake connection with IVS Stage server...";
+
+            const strategy = {
+                shouldSubscribeToParticipant: () => SubscribeType.AUDIO_VIDEO,
+                shouldPublishParticipant: () => true,
+                stageStreamsToPublish: () => [
+                    new LocalStageStream(videoTrack),
+                    new LocalStageStream(audioTrack)
+                ]
+            };
+
+            stageInstance = new Stage(dynamicStageToken, strategy);
+
+            stageInstance.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
+                statusLog.innerText = `Stage Real-Time Link State ➔ ${state.toUpperCase()}`;
+                
+                if (state === "CONNECTED") {
+                    statusLog.style.borderLeftColor = "#00e676";
+                    statusLog.innerText = "Live Broadcast Active! (Sub-300ms WebRTC delay pipeline)";
+                    goLiveBtn.innerText = "Streaming Live";
+                    goLiveBtn.classList.add('streaming');
+                }
+            });
+
+            await stageInstance.join();
+
+        } catch (err) {
+            statusLog.style.borderLeftColor = "#ff5252";
+            statusLog.innerText = `Broadcast Failed: ${err.message}`;
+            goLiveBtn.disabled = false;
+            apiUrlInput.disabled = false;
+            usernameInput.disabled = false;
+            passwordInput.disabled = false;
+            auctionIdInput.disabled = false;
+            goLiveBtn.innerText = "2. Go Live (0 Delay)";
+            console.error(err);
+        }
+    });
+</script>
+</body>
+</html>
