@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IVS Real-Time Broadcast v4</title>
+    <title>IVS Real-Time Broadcast</title>
     <script src="https://web-broadcast.live-video.net/1.37.0/amazon-ivs-web-broadcast.js"></script>
     <style>
         body { 
@@ -183,9 +183,6 @@
                 stageInstance = null; // Clear instance so a fresh one is built on next "Go Live"
             }
 
-            // NOTE: We intentionally DO NOT touch videoTrack or audioTrack. 
-            // Your local preview video element keeps running smoothly.
-
             isStreaming = false;
             goLiveBtn.classList.remove('streaming');
             goLiveBtn.innerText = "2. Go Live";
@@ -193,7 +190,7 @@
             auctionIdInput.disabled = false;
             
             statusLog.style.borderLeftColor = "#ff9100";
-            statusLog.innerText = "Unpublished successfully. Camera preview is still active. Click 'Go Live' to broadcast again.";
+            statusLog.innerText = "Live ended successfully. Click 'Go Live' to broadcast again.";
             return;
         }
         // Go Live action
