@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IVS Real-Time Broadcast v2</title>
+    <title>IVS Real-Time Broadcast v3</title>
     <script src="https://web-broadcast.live-video.net/1.37.0/amazon-ivs-web-broadcast.js"></script>
     <style>
         body { 
@@ -175,16 +175,15 @@
         
             if (stageInstance) {
                 try {
-                    // Force drop publication first
                     stageInstance.updateStrategy({
                         shouldSubscribeToParticipant: () => SubscribeType.NONE,
                         shouldPublishParticipant: () => false,
                         stageStreamsToPublish: () => []
                     });
                     stageInstance.refreshStrategy();
-        
-                    // Await the full leave handshake
-                    await stageInstance.leave();
+
+                    // 2. Leave the stage synchronously (leave() does not return a Promise)
+                    stageInstance.leave();
                 } catch (e) {
                     console.error("Error leaving stage:", e);
                 }
