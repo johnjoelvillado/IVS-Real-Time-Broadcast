@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IVS Real-Time Broadcast v3</title>
+    <title>IVS Real-Time Broadcast v4</title>
     <script src="https://web-broadcast.live-video.net/1.37.0/amazon-ivs-web-broadcast.js"></script>
     <style>
         body { 
@@ -169,27 +169,23 @@
 
     // 2. Main Button Action: Go Live or End Live
     goLiveBtn.addEventListener('click', async () => {
-        if (isStreaming) {
-            statusLog.innerText = "Disconnecting completely from AWS...";
+       if (isStreaming) {
+            statusLog.innerText = "Unpublishing from AWS (EventBridge incoming)...";
             goLiveBtn.disabled = true;
-        
+
+            // 1. Leave the stage completely to force an immediate unpublish event
             if (stageInstance) {
                 try {
-                    stageInstance.updateStrategy({
-                        shouldSubscribeToParticipant: () => SubscribeType.NONE,
-                        shouldPublishParticipant: () => false,
-                        stageStreamsToPublish: () => []
-                    });
-                    stageInstance.refreshStrategy();
-
-                    // 2. Leave the stage synchronously (leave() does not return a Promise)
                     stageInstance.leave();
                 } catch (e) {
                     console.error("Error leaving stage:", e);
                 }
-                stageInstance = null;
+                stageInstance = null; // Clear instance so a fresh one is built on next "Go Live"
             }
-        
+
+            // NOTE: We intentionally DO NOT touch videoTrack or audioTrack. 
+            // Your local preview video element keeps running smoothly.
+
             isStreaming = false;
             goLiveBtn.classList.remove('streaming');
             goLiveBtn.innerText = "2. Go Live";
@@ -197,7 +193,7 @@
             auctionIdInput.disabled = false;
             
             statusLog.style.borderLeftColor = "#ff9100";
-            statusLog.innerText = "Disconnected. Stream should now drop for all viewers.";
+            statusLog.innerText = "Unpublished successfully. Camera preview is still active. Click 'Go Live' to broadcast again.";
             return;
         }
         // Go Live action
