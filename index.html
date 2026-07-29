@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IVS Real-Time Broadcast</title>
+    <title>IVS Real-Time Broadcast v1</title>
     <script src="https://web-broadcast.live-video.net/1.37.0/amazon-ivs-web-broadcast.js"></script>
     <style>
         body { 
@@ -169,63 +169,38 @@
 
     // 2. Main Button Action: Go Live or End Live
     goLiveBtn.addEventListener('click', async () => {
-     if (isStreaming) {
-            // End Live action
-            statusLog.innerText = "Ending broadcast gracefully...";
+   if (isStreaming) {
+            statusLog.innerText = "Disconnecting from AWS IVS...";
             goLiveBtn.disabled = true;
 
             if (stageInstance) {
                 try {
-                    // 1. Explicitly clear publishing strategy first
-                    await stageInstance.updateStrategy({
+                    // 1. Tell the strategy to stop publishing immediately
+                    stageInstance.updateStrategy({
                         shouldSubscribeToParticipant: () => SubscribeType.NONE,
                         shouldPublishParticipant: () => false,
                         stageStreamsToPublish: () => []
                     });
-                    
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    stageInstance.refreshStrategy();
 
-                    // 2. Leave the stage entirely
+                    // 2. Leave the AWS Stage entirely (this triggers Participant Unpublished instantly)
                     await stageInstance.leave();
                 } catch (e) {
-                    console.error("Error during clean shutdown:", e);
+                    console.error("Error leaving stage:", e);
                 }
+                // 3. Clear the instance so a fresh connection can be made next time
                 stageInstance = null;
             }
-
-            // 3. CRITICAL: Stop physical camera and microphone hardware tracks
-            if (videoTrack) {
-                videoTrack.stop();
-                videoTrack = null;
-            }
-            if (audioTrack) {
-                audioTrack.stop();
-                audioTrack = null;
-            }
-
-            // 4. Clear the local preview video element
-            const localPreview = document.getElementById('localPreview');
-            if (localPreview.srcObject) {
-                localPreview.srcObject.getTracks().forEach(track => track.stop());
-                localPreview.srcObject = null;
-            }
-
             isStreaming = false;
             goLiveBtn.classList.remove('streaming');
-            goLiveBtn.innerText = "1. Request Camera & Mic"; // Reset flow back to step 1
-            goLiveBtn.disabled = true;
+            goLiveBtn.innerText = "2. Go Live";
+            goLiveBtn.disabled = false;
             
-            // Re-enable camera setup button so user can go live again later
-            setupBtn.disabled = false;
-
-            // Re-enable inputs
-            apiUrlInput.disabled = false;
-            usernameInput.disabled = false;
-            passwordInput.disabled = false;
+            // Re-enable inputs so you can change the auction ID if needed
             auctionIdInput.disabled = false;
             
             statusLog.style.borderLeftColor = "#ff9100";
-            statusLog.innerText = "Stream ended completely";
+            statusLog.innerText = "Disconnected from AWS. Camera preview is still active. Click 'Go Live' to stream again.";
             return;
         }
         // Go Live action
