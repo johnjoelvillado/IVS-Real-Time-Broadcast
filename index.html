@@ -169,15 +169,36 @@
 
     // 2. Main Button Action: Go Live or End Live
     goLiveBtn.addEventListener('click', async () => {
-        if (isStreaming) {
+      if (isStreaming) {
             // End Live action
+            statusLog.innerText = "Ending broadcast gracefully...";
+            goLiveBtn.disabled = true;
+
             if (stageInstance) {
-                await stageInstance.leave();
+                try {
+                    // 1. Explicitly clear publishing strategy first so the server 
+                    // immediately registers "Participant Unpublished"
+                    await stageInstance.updateStrategy({
+                        shouldSubscribeToParticipant: () => SubscribeType.NONE,
+                        shouldPublishParticipant: () => false,
+                        stageStreamsToPublish: () => []
+                    });
+                    
+                    // Brief pause to allow the unpublish signal to flush to AWS
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    // 2. Now leave the stage entirely
+                    await stageInstance.leave();
+                } catch (e) {
+                    console.error("Error during clean shutdown:", e);
+                }
                 stageInstance = null;
             }
+
             isStreaming = false;
             goLiveBtn.classList.remove('streaming');
             goLiveBtn.innerText = "2. Go Live";
+            goLiveBtn.disabled = false;
             
             // Re-enable inputs
             apiUrlInput.disabled = false;
@@ -186,10 +207,9 @@
             auctionIdInput.disabled = false;
             
             statusLog.style.borderLeftColor = "#ff9100";
-            statusLog.innerText = "Stream ended. You can modify settings or go live again.";
+            statusLog.innerText = "Stream ended cleanly. EventBridge 'Participant Unpublished' should trigger shortly.";
             return;
         }
-
         // Go Live action
         const apiUrl = apiUrlInput.value.trim();
         const username = usernameInput.value.trim();
