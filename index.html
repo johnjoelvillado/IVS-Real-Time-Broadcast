@@ -170,7 +170,6 @@
     // 2. Main Button Action: Go Live or End Live
     goLiveBtn.addEventListener('click', async () => {
        if (isStreaming) {
-            statusLog.innerText = "Unpublishing from AWS (EventBridge incoming)...";
             goLiveBtn.disabled = true;
 
             // 1. Leave the stage completely to force an immediate unpublish event
@@ -244,7 +243,6 @@
             dynamicStageToken = data.realtime_token;
 
             goLiveBtn.innerText = "Connecting...";
-            statusLog.innerText = "Establishing WebRTC handshake connection with IVS Stage server...";
 
             const strategy = {
                 shouldSubscribeToParticipant: () => SubscribeType.AUDIO_VIDEO,
@@ -260,11 +258,11 @@
             stageInstance.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
                 const stateStr = String(state).toLowerCase();
                 statusLog.innerText = `Stage Real-Time Link State ➔ ${stateStr.toUpperCase()}`;
-                
                 if (stateStr === "connected") {
+                    const trackSettings = videoTrack.getSettings();
                     isStreaming = true;
                     statusLog.style.borderLeftColor = "#00e676";
-                    statusLog.innerText = "Live Broadcast Active! (Sub-300ms WebRTC delay pipeline)";
+                    statusLog.innerText = `Live Broadcast Active! Resolution: ${trackSettings.width}x${trackSettings.height}`;
                     goLiveBtn.disabled = false;
                     goLiveBtn.innerText = "End Live";
                     goLiveBtn.classList.add('streaming');
