@@ -132,6 +132,7 @@
     let videoTrack = null;
     let audioTrack = null;
     let dynamicStageToken = null;
+    let tokenGeneratedAt = null;
     let isStreaming = false;
     
     const statusLog = document.getElementById('log-status');
@@ -169,19 +170,18 @@
 
     // 2. Main Button Action: Go Live or End Live
     goLiveBtn.addEventListener('click', async () => {
-       if (isStreaming) {
+      if (isStreaming) {
             goLiveBtn.disabled = true;
-
-            // 1. Leave the stage completely to force an immediate unpublish event
+    
             if (stageInstance) {
                 try {
-                    stageInstance.leave();
+                    await stageInstance.leave(); // Await the leave promise to ensure clean teardown
                 } catch (e) {
                     console.error("Error leaving stage:", e);
                 }
-                stageInstance = null; // Clear instance so a fresh one is built on next "Go Live"
+                stageInstance = null; 
             }
-
+    
             isStreaming = false;
             goLiveBtn.classList.remove('streaming');
             goLiveBtn.innerText = "2. Go Live";
@@ -217,30 +217,41 @@
         goLiveBtn.innerText = "Fetching Token...";
         statusLog.innerText = `Requesting real-time token for Auction ID: ${auctionId}...`;
 
+        const ELEVEN_HOURS_MS = 11 * 60 * 60 * 1000;
+        const now = Date.now();
+        const isTokenExpired = !dynamicStageToken || !tokenGeneratedAt || (now - tokenGeneratedAt >= ELEVEN_HOURS_MS);
         try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    username: username || undefined,
-                    password: password || undefined,
-                    auction_id: parseInt(auctionId)
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`Server returned status ${response.status}`);
+          if (isTokenExpired) {
+                goLiveBtn.innerText = "Fetching Token...";
+                statusLog.innerText = `Requesting real-time token for Auction ID: ${auctionId}...`;
+        
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username || undefined,
+                        password: password || undefined,
+                        auction_id: parseInt(auctionId)
+                    })
+                });
+        
+                if (!response.ok) {
+                    throw new Error(`Server returned status ${response.status}`);
+                }
+        
+                const data = await response.json();
+                
+                if (!data.realtime_token) {
+                    throw new Error("API response missing 'realtime_token' property.");
+                }
+        
+                dynamicStageToken = data.realtime_token;
+                tokenGeneratedAt = Date.now(); // Save timestamp when fetched
+            } else {
+                statusLog.innerText = `Reusing active session token (cached)...`;
             }
-
-            const data = await response.json();
-            
-            if (!data.realtime_token) {
-                throw new Error("API response missing 'realtime_token' property.");
-            }
-
-            dynamicStageToken = data.realtime_token;
 
             goLiveBtn.innerText = "Connecting...";
 
