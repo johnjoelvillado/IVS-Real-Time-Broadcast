@@ -87,6 +87,7 @@
             font-size: 13px; 
             color: #b3b3b3; 
             text-align: left;
+            word-break: break-all;
         }
     </style>
 </head>
@@ -175,7 +176,7 @@
     
             if (stageInstance) {
                 try {
-                    await stageInstance.leave(); // Await the leave promise to ensure clean teardown
+                    await stageInstance.leave();
                 } catch (e) {
                     console.error("Error leaving stage:", e);
                 }
@@ -192,6 +193,7 @@
             statusLog.innerText = "Live ended successfully. Click 'Go Live' to broadcast again.";
             return;
         }
+
         // Go Live action
         const apiUrl = apiUrlInput.value.trim();
         const username = usernameInput.value.trim();
@@ -220,6 +222,7 @@
         const ELEVEN_HOURS_MS = 11 * 60 * 60 * 1000;
         const now = Date.now();
         const isTokenExpired = !dynamicStageToken || !tokenGeneratedAt || (now - tokenGeneratedAt >= ELEVEN_HOURS_MS);
+        
         try {
           if (isTokenExpired) {
                 goLiveBtn.innerText = "Fetching Token...";
@@ -236,19 +239,28 @@
                         auction_id: parseInt(auctionId)
                     })
                 });
-        
-                if (!response.ok) {
-                    throw new Error(`Server returned status ${response.status}`);
+
+                // Read response text safely first to avoid unhandled JSON parse exceptions
+                const responseText = await response.text();
+                let data;
+
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    // If server returned plain text string error instead of JSON object
+                    throw new Error(responseText || `Server responded with status ${response.status}`);
                 }
-        
-                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || data.error || responseText || `Server returned status ${response.status}`);
+                }
                 
                 if (!data.realtime_token) {
                     throw new Error("API response missing 'realtime_token' property.");
                 }
         
                 dynamicStageToken = data.realtime_token;
-                tokenGeneratedAt = Date.now(); // Save timestamp when fetched
+                tokenGeneratedAt = Date.now();
             } else {
                 statusLog.innerText = `Reusing active session token (cached)...`;
             }
